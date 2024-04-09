@@ -28,18 +28,20 @@ DEBUG    = 4
 
 # Gratia record constants 
 SECONDS = "Was entered in seconds"
+LOCAL_USER = "osgvo-container-pilot"
 USER = "user"
 RESOURCE_TYPE = "Batch"
 
-BATCH_SIZE = 1000
+BATCH_SIZE = 10
 
 class ApelRecordConverter():
     apel_dict: dict
 
-    def __init__(self, apel_record: str):
-        self.apel_dict = self._parse_apel_str(apel_record)
+    def __init__(self, apel_record: bytes):
+        self._parse_apel_str(apel_record.decode())
 
     def _parse_apel_str(self, apel_record: str):
+        self.apel_dict = {}
         lines = apel_record.split('\n')
         for line in lines:
             kv_pair = [v.strip() for v in line.split(':')]
@@ -65,10 +67,11 @@ class ApelRecordConverter():
         r.EndTime(     self.getint('LatestEndTime'), SECONDS)
         r.WallDuration(self.getint('WallDuration'), SECONDS)
         r.CpuDuration( self.getint('CpuDuration'), USER, SECONDS)
-        r.Processors(  self.getint('Processors'), SECONDS)
+        r.Processors(  self.getint('Processors'), metric="max")
         r.SiteName(    self.get('Site'))
         r.ProbeName(   self.site_probe())
         r.Grid(        self.get('InfrastructureType')) # Best guess
+        r.LocalUserId( LOCAL_USER)
         r.VOName(      self.get('VO'))
         r.ReportableVOName(      self.get('VO'))
 
@@ -90,13 +93,14 @@ def send_gratia_records(records: list[ApelRecordConverter]):
     try:
         GratiaCore.SearchOutstandingRecord()
     except Exception as e:
-        DebugPrint(f"Failed to search outstanding records: {e}")
+        print(f"Failed to search outstanding records: {e}")
         raise
 
     GratiaCore.Reprocess()
 
     for record in records:
-        GratiaCore.Send(record)
+        resp = GratiaCore.Send(record.to_gratia_record())
+        print(resp)
 
     GratiaCore.ProcessCurrentBundle()
             
@@ -114,8 +118,8 @@ def setup_gratia(config: KAPELConfig):
 
     # Register gratia
     GratiaCore.RegisterReporter(config.gratia_reporter)
-    GratiaCore.RegisterService(config.gratia_service)
-    GratiaCore.setBatchProbeManager(config.gratia_probe_manager)
+    GratiaCore.RegisterService(config.gratia_service, config.gratia_probe_version)
+    GratiaCore.setProbeBatchManager(config.gratia_probe_manager)
 
     GratiaCore.Initialize(config.gratia_config_path)
 
@@ -130,11 +134,19 @@ def main(envFile: str):
     for name in dirq:
         if not dirq.lock(name):
             continue
-        records.append(ApelRecordConverter(dirq.get(name)).to_gratia_record())
+        records.append(ApelRecordConverter(dirq.get(name)))
 
+        dirq.unlock(name)
+
+    # Clear out the queue if all the sends succeed
+    for name in dirq:
+        if not dirq.lock(name):
+            continue
         dirq.remove(name)
 
-    send_gratia_records(records)
+    if records:
+        send_gratia_records(records)
+    print("done")
 
     
 

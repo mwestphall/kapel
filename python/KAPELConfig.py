@@ -72,8 +72,9 @@ class KAPELConfig:
 
 
         # Gratia config
-        self.gratia_config_path = env.str("GRATIA_CONFIG_PATH")
+        self.gratia_config_path = env.str("GRATIA_CONFIG_PATH", None)
 
-        self.gratia_reporter = env.str("GRATIA_REPORTER")
-        self.gratia_service = env.str("GRATIA_SERVICE")
-        self.gratia_probe_manager = env.str("GRATIA_PROBE_MANAGER")
+        self.gratia_reporter = env.str("GRATIA_REPORTER", None)
+        self.gratia_service = env.str("GRATIA_SERVICE", None)
+        self.gratia_probe_manager = env.str("GRATIA_PROBE_MANAGER", None)
+        self.gratia_probe_version = env.str("GRATIA_PROBE_VERSION", None)
