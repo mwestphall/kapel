@@ -69,3 +69,11 @@ class KAPELConfig:
         # set a default of 0 here but see https://github.com/apel/apel/issues/241
         self.nodecount = env.int("NODECOUNT", 0)
         self.processors = env.int("PROCESSORS", 0)
+
+
+        # Gratia config
+        self.gratia_config_path = env.str("GRATIA_CONFIG_PATH")
+
+        self.gratia_reporter = env.str("GRATIA_REPORTER")
+        self.gratia_service = env.str("GRATIA_SERVICE")
+        self.gratia_probe_manager = env.str("GRATIA_PROBE_MANAGER")

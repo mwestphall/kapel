@@ -57,7 +57,7 @@ class QueryLogic:
         self.starttime = f'max_over_time(kube_pod_start_time{{namespace="{namespace}"}}[{queryRange}])'
         self.cores = f'max_over_time(kube_pod_container_resource_requests{{resource="cpu", node != "", namespace="{namespace}"}}[{queryRange}])'
 
-def summary_message(config, year, month, wall_time, cpu_time, n_jobs, first_end, last_end):
+def summary_message(config, year, month, wall_time, cpu_time, n_jobs, first_end, last_end, start_time=None):
     output = (
         f'APEL-summary-job-message: v0.2\n'
         f'Site: {config.site_name}\n'
@@ -77,6 +77,7 @@ def summary_message(config, year, month, wall_time, cpu_time, n_jobs, first_end,
         f'NodeCount: {config.nodecount}\n'
         f'EarliestEndTime: {first_end}\n'
         f'LatestEndTime: {last_end}\n'
+        f'StartTime: {start_time}\n'
         f'%%\n'
     )
     return output
