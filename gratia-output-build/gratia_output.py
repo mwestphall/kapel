@@ -1,8 +1,7 @@
 import argparse
 import datetime
 
-from KAPELConfig import KAPELConfig
-from prometheus_api_client import PrometheusConnect
+from gratia_output_config import GratiaOutputConfig
 from dirq.QueueSimple import QueueSimple
 import os
 from datetime import datetime, timezone 
@@ -32,7 +31,7 @@ LOCAL_USER = "osgvo-container-pilot"
 USER = "user"
 RESOURCE_TYPE = "Batch"
 
-BATCH_SIZE = 10
+BATCH_SIZE = 100
 
 class ApelRecordConverter():
     apel_dict: dict
@@ -73,7 +72,7 @@ class ApelRecordConverter():
         r.Grid(        self.get('InfrastructureType')) # Best guess
         r.LocalUserId( LOCAL_USER)
         r.VOName(      self.get('VO'))
-        r.ReportableVOName(      self.get('VO'))
+        r.ReportableVOName(self.get('VO'))
 
         return r
 
@@ -107,7 +106,7 @@ def send_gratia_records(records: list[ApelRecordConverter]):
 
 
 
-def setup_gratia(config: KAPELConfig):
+def setup_gratia(config: GratiaOutputConfig):
 
     if not config.gratia_config_path or not os.path.exists(config.gratia_config_path):
         raise Exception("No valid gratia config path given")
@@ -123,29 +122,39 @@ def setup_gratia(config: KAPELConfig):
 
     GratiaCore.Initialize(config.gratia_config_path)
 
+def batch_dirq(queue, batch_size):
+    """ batch the records in a dirq into groups of a fixed size """
+    # TODO this is not the most elegant approach
+    records = []
+    for name in queue:
+        records.append(name)
+        if len(records) >= batch_size:
+            yield records
+            records = []
+    # Yield the last entries as well
+    yield records
+
 def main(envFile: str):
     print(f'Starting Gratia post-processor: {__file__} with envFile {envFile} at {datetime.now(tz=timezone.utc).isoformat()}')
-    cfg = KAPELConfig(envFile)
+    cfg = GratiaOutputConfig(envFile)
 
     setup_gratia(cfg)
 
     dirq = QueueSimple(str(cfg.output_path))
-    records = []
-    for name in dirq:
-        if not dirq.lock(name):
-            continue
-        records.append(ApelRecordConverter(dirq.get(name)))
-
-        dirq.unlock(name)
-
-    # Clear out the queue if all the sends succeed
-    for name in dirq:
-        if not dirq.lock(name):
-            continue
-        dirq.remove(name)
-
-    if records:
-        send_gratia_records(records)
+    for batch in batch_dirq(dirq, BATCH_SIZE):
+        apel_records = []
+        for name in batch:
+            if not dirq.lock(name):
+                continue
+            apel_records.append(ApelRecordConverter(dirq.get(name)))
+            dirq.unlock(name)
+        if apel_records:
+            send_gratia_records(apel_records)
+        # Clear out the chunk of the queue if all the sends succeed
+        for name in batch:
+            if not dirq.lock(name):
+                continue
+            dirq.remove(name)
     print("done")
 
     

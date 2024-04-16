@@ -1,0 +1,11 @@
+services:
+  gratia-output:
+    image: kapel-gratia-output
+    build:
+      context: .
+      dockerfile: Dockerfile
+    
+    volumes:
+      - /tmp/dirq/:/srv/kapel
+      - ./sample.env:/etc/kapel-gratia-output/.env
+      - ./gratia-config:/etc/kapel-gratia-output/gratia-config
