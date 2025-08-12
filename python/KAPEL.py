@@ -19,6 +19,7 @@ from os.path import isfile, join
 from pathlib import Path
 from shutil import copyfile
 from typing import Any
+import json
 
 from KAPELConfig import KAPELConfig
 from prometheus_api_client import PrometheusConnect
@@ -59,11 +60,11 @@ class QueryLogic:
         self.endtime = f'max_over_time(kube_pod_completion_time{{namespace="{namespace}"}}[{queryRange}])'
         self.starttime = f'max_over_time(kube_pod_start_time{{namespace="{namespace}"}}[{queryRange}])'
         self.cores = f'max_over_time(kube_pod_container_resource_requests{{resource="cpu", node != "", namespace="{namespace}"}}[{queryRange}])'
-        self.memory = f'sum by (pod, id) (max_over_time(kube_pod_container_resource_requests{{resource="memory", node!="", namespace="{namespace}"}}[{queryRange}])) / 1000'
+        self.memory = f'sum by (pod, uid) (max_over_time(kube_pod_container_resource_requests{{resource="memory", node!="", namespace="{namespace}"}}[{queryRange}])) / 1000'
 
         # This is container-level CPU usage reported by kubelets, for gratia output.
         # Take the largest (i.e. final) value of the cumulative CPU usage of each container, and sum the results for all containers in a pod.
-        self.cpuusage = f'sum by (pod) (last_over_time(container_cpu_usage_seconds_total{{namespace="{namespace}"}}[{queryRange}]))'
+        self.cpuusage = f'sum by (pod, id) (last_over_time(container_cpu_usage_seconds_total{{namespace="{namespace}"}}[{queryRange}]))'
 
 def summary_message(config, year, month, wall_time, cpu_time, n_jobs, first_end, last_end):
     output = (
@@ -182,7 +183,7 @@ def get_gap_time_periods(start, end):
 
 # Only extract the record for the top level cgroup, which should (theoretically)
 # encompass all containers
-ID_UUID_RE = re.compile(r'^/kubepods.slice/kubepods-pod([0-9a-f_]*).slice$')
+ID_UUID_RE = re.compile(r'^/kubepods.slice/.*pod([0-9a-f_]*).slice$')
 def _extact_uid_from_cgroup(cgroup: str):
     if match := ID_UUID_RE.match(cgroup):
         return match[1].replace('_','-')
@@ -195,7 +196,7 @@ def filter_records_by_uid(prom_result: list[dict[str, dict[str, Any]]]):
     for item in prom_result:
         metric = item['metric']
         if 'id' in metric and not 'uid' in metric:
-            uid = _extact_uid_from_cgroup(metric['uid'])
+            uid = _extact_uid_from_cgroup(metric['id'])
             metric['uid'] = uid
 
     return (item for item in prom_result if item['metric'].get('uid'))
@@ -286,7 +287,7 @@ def record_individual_period(config, results: dict[str, dict[tuple[str, str], fl
     per_pod_records = {}
     for data_type, records in results.items():
         for (pod, uid), val in records.items():
-            if not pod in per_pod_records:
+            if not (pod, uid) in per_pod_records:
                 per_pod_records[(pod, uid)] = {}
             per_pod_records[(pod, uid)][data_type] = val
     
@@ -296,6 +297,7 @@ def record_individual_period(config, results: dict[str, dict[tuple[str, str], fl
         # Only report on pods that have completed. Running pods won't have an endtime
         if not ('starttime' in records and 'endtime' in records):
             continue
+
 
         # If we can't determine the processor count for a pod, skip it with a warning
         processors = records.get('cores', 0) or config.processors
