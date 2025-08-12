@@ -59,7 +59,7 @@ class QueryLogic:
         self.endtime = f'max_over_time(kube_pod_completion_time{{namespace="{namespace}"}}[{queryRange}])'
         self.starttime = f'max_over_time(kube_pod_start_time{{namespace="{namespace}"}}[{queryRange}])'
         self.cores = f'max_over_time(kube_pod_container_resource_requests{{resource="cpu", node != "", namespace="{namespace}"}}[{queryRange}])'
-        self.memory = f'sum by (pod) (max_over_time(kube_pod_container_resource_requests{{resource="memory", node!="", namespace="{namespace}"}}[{queryRange}])) / 1000'
+        self.memory = f'sum by (pod, id) (max_over_time(kube_pod_container_resource_requests{{resource="memory", node!="", namespace="{namespace}"}}[{queryRange}])) / 1000'
 
         # This is container-level CPU usage reported by kubelets, for gratia output.
         # Take the largest (i.e. final) value of the cumulative CPU usage of each container, and sum the results for all containers in a pod.
@@ -188,7 +188,7 @@ def _extact_uid_from_cgroup(cgroup: str):
         return match[1].replace('_','-')
     return None
 
-def filter_records_by_uid(prom_result: list[dict[str, Any]]):
+def filter_records_by_uid(prom_result: list[dict[str, dict[str, Any]]]):
     # Given a list of prometheus results, attempt to determine the `uid`
     # field for records that don't have them, then return just the records
     # for which a UID could be determined
@@ -198,11 +198,10 @@ def filter_records_by_uid(prom_result: list[dict[str, Any]]):
             uid = _extact_uid_from_cgroup(metric['uid'])
             metric['uid'] = uid
 
-    return (item for item in prom_result if item.get('uid'))
+    return (item for item in prom_result if item['metric'].get('uid'))
 
 # Take a list of dicts from the prom query and construct a random-accessible dict (casting from string to float while we're at it) via generator.
 # (actually a list of tuples, so use dict() on the output) that can be referenced by the (pod, uid) label as a key.
-# NB: this overwrites duplicate results if we get any from the prom query!
 def group_results_by_pod_uid(prom_result: list[dict[str, Any]]):
     for item in filter_records_by_uid(prom_result):
         pod_key = item['metric']['pod']
