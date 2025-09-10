@@ -311,7 +311,7 @@ def record_individual_period(config, results: dict[str, dict[tuple[str, str], fl
             records.get('memory', 0),
             processors,
             records['endtime'] - records['starttime'],
-            records.get('cpuusage', 0),
+            records.get('cputime', 0),
             records['starttime'],
             records['endtime'])
         record_file = dirq.add(individual_output)
