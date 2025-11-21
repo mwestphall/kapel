@@ -1,6 +1,6 @@
 services:
   kapel-processor:
-    image: hub.opensciencegrid.org/iris-hep/kuantifier-processor:1.0.2
+    image: hub.opensciencegrid.org/osgpreview/kuantifier-processor:1.0.3-rc3
     build:
       context: .
       network: host
