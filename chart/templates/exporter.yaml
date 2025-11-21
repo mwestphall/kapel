@@ -1,0 +1,134 @@
+{{ if .Values.exporter.enabled }}
+
+############################################
+# ServiceAccount and RBAC for Exporter
+############################################
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kuantifier-runtime-exporter
+  namespace: {{ .Release.Namespace }} # Place the service account in the same namespace as the helm release
+  labels:
+    app: kuantifier-runtime-exporter
+    component: metrics
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: kuantifier-runtime-exporter
+  namespace: {{ .Values.exporter.config.NAMESPACE }} # Add a pod-read role in the namespace being monitored
+  labels:
+    app: kuantifier-runtime-exporter
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kuantifier-runtime-exporter
+  namespace:  {{ .Values.exporter.config.NAMESPACE }} # Bind the role in the namespace being monitored ...
+  labels:
+    app: kuantifier-runtime-exporter
+subjects:
+- kind: ServiceAccount
+  name: kuantifier-runtime-exporter
+  namespace: {{ .Release.Namespace }} # ... To the service account in the helm release namespace
+roleRef:
+  kind: Role
+  name: kuantifier-runtime-exporter
+  apiGroup: rbac.authorization.k8s.io
+
+---
+
+############################################
+# Deployment for Exporter
+############################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-runtime-exporter
+  namespace: cmsaf-prod
+  labels:
+    app: pod-runtime-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pod-runtime-exporter
+  template:
+    metadata:
+      labels:
+        app: pod-runtime-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9100"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: pod-runtime-exporter
+      containers:
+      - name: exporter
+        image: python:3.11-slim
+        imagePullPolicy: IfNotPresent
+        env:
+        {{- range $key, $value := .Values.exporter.config }}
+        - name: {{ $key }}
+          value: {{ $value | quote }}
+        {{- end }}
+        ports:
+        - containerPort: 9100
+          name: metrics
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        livenessProbe:
+          httpGet:
+            path: /metrics
+            port: 9100
+          initialDelaySeconds: 30
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /metrics
+            port: 9100
+          initialDelaySeconds: 10
+          periodSeconds: 10
+
+---
+
+############################################
+# ServiceMonitor for Exporter
+############################################
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kuantifier-runtime-exporter-servicemonitor
+  namespace: {{ .Release.Namespace }}
+  labels:
+    release: monitoring-kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  selector:
+    matchLabels:
+      app: kuantifier-runtime-exporter
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+      honorLabels: true
+
+{{ end }}

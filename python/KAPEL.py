@@ -54,28 +54,28 @@ class QueryLogic:
         # (which takes a range and returns a scalar), and as a result get the whole metric set. Finally, use group_left for many-to-one matching.
         # https://prometheus.io/docs/prometheus/latest/querying/operators/#aggregation-operators
         # https://prometheus.io/docs/prometheus/latest/querying/operators/#many-to-one-and-one-to-many-vector-matches
-        #prefer the kube_pod_completion to fall back to kapel_pod_endtime if it's missing
+        #prefer the kube_pod_completion to fall back to kuantifier_pod_endtime if it's missing
         _end_pref = (
             f'(max_over_time(kube_pod_completion_time{{namespace="{namespace}"}}[{queryRange}]) '
-            f'or on(pod, uid, namespace) max_over_time(kapel_pod_endtime{{namespace="{namespace}"}}[{queryRange}]))'
+            f'or on(pod, uid, namespace) max_over_time(kuantifier_pod_endtime{{namespace="{namespace}"}}[{queryRange}]))'
         )
-        #prefer the kube_pod_container_resource_requests to fall back to kapel_pod_cpu_requests if it's missing
+        #prefer the kube_pod_container_resource_requests to fall back to kuantifier_pod_cpu_requests if it's missing
         _cores_pref = (
             f'(max_over_time(kube_pod_container_resource_requests{{resource="cpu", node != "", namespace="{namespace}"}}[{queryRange}]) '
-            f'or on(pod, uid, namespace) max_over_time(kapel_pod_cpu_requests{{namespace="{namespace}"}}[{queryRange}]))'
+            f'or on(pod, uid, namespace) max_over_time(kuantifier_pod_cpu_requests{{namespace="{namespace}"}}[{queryRange}]))'
         )
         
         #Calculates each pod’s CPU time by multiplying how long it ran by its CPU cores, using exporter data if KSM metrics are missing.
         self.cputime = (
         f'(max by (pod, uid) ('
         f'  (max_over_time(kube_pod_completion_time{{namespace="{namespace}"}}[{queryRange}]) '
-        f'   or on(pod, uid, namespace) max_over_time(kapel_pod_endtime{{namespace="{namespace}"}}[{queryRange}]))'
+        f'   or on(pod, uid, namespace) max_over_time(kuantifier_pod_endtime{{namespace="{namespace}"}}[{queryRange}]))'
         f') - '
         f'max by (pod, uid) (max_over_time(kube_pod_start_time{{namespace="{namespace}"}}[{queryRange}]))) '
         f'* on (pod, uid) group_left() '
         f'max by (pod, uid) ('
         f'  (max_over_time(kube_pod_container_resource_requests{{resource="cpu", node != "", namespace="{namespace}"}}[{queryRange}]) '
-        f'   or on(pod, uid, namespace) max_over_time(kapel_pod_cpu_requests{{namespace="{namespace}"}}[{queryRange}]))'
+        f'   or on(pod, uid, namespace) max_over_time(kuantifier_pod_cpu_requests{{namespace="{namespace}"}}[{queryRange}]))'
         f')'
         )
 

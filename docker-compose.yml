@@ -4,3 +4,7 @@ services:
     build:
       context: .
       network: host
+  runtime-exporter:
+    image: hub.opensciencegrid.org/iris-hep/kuantifier-runtime-exporter:1.0.0
+    build:
+      context: runtime_exporter

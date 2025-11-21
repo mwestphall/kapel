@@ -68,7 +68,7 @@ processor:
     # SUBMIT_HOST: "k8s.example.org:6443/namespace"
     
     # Namespace in the cluster where workload pods run
-    # NAMESPACE: "example-namespace"
+    NAMESPACE: "example-namespace"
     
     # Virtual Organization Name
     VO_NAME: "example-vo"
@@ -81,6 +81,32 @@ processor:
   prometheus_auth:
     secret: null
     key: null
+  
+# Custom prometheus end-time exporter for workloads where endtime of a pod cannot be reliably determined by 
+# kube-state-metrics (such as Deployments that do not remain in the Completed state post-termination)
+exporter:
+  enabled: true
+
+  image_repository: "hub.opensciencegrid.org/iris-hep/kuantifier-runtime-exporter"
+  # Optionally overwrite container version.
+  image_tag: "1.0.2"
+  image_pull_policy: "IfNotPresent"
+
+  config:
+    # Namespace in the cluster where workload pods run
+    NAMESPACE: "example-namespace"
+
+    # Prefix for identifying workload pods
+    POD_NAME_PREFIX: ""
+
+    # Port on which to expose Prometheus metrics
+    METRICS_PORT: "9100"
+
+    # Frequency (in seconds) with which to scan for pods
+    SCAN_INTERVAL_SECONDS: "30"
+
+    # Number of scans a pod can be missing before it is considered gone
+    MISSING_TOLERANCE: "1"
 
 ssmsend:
   resources:
