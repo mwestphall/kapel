@@ -8,20 +8,20 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: kuantifier-runtime-exporter
+  name: {{ .Release.Name }}-runtime-exporter
   namespace: {{ .Release.Namespace }} # Place the service account in the same namespace as the helm release
   labels:
-    app: kuantifier-runtime-exporter
+    app: {{ .Release.Name }}-runtime-exporter
     component: metrics
 ---
 
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: kuantifier-runtime-exporter
+  name: {{ .Release.Name }}-runtime-exporter
   namespace: {{ .Values.exporter.config.NAMESPACE }} # Add a pod-read role in the namespace being monitored
   labels:
-    app: kuantifier-runtime-exporter
+    app: {{ .Release.Name }}-runtime-exporter
 rules:
 - apiGroups: [""]
   resources: ["pods"]
@@ -31,17 +31,17 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: kuantifier-runtime-exporter
+  name: {{ .Release.Name }}-runtime-exporter
   namespace:  {{ .Values.exporter.config.NAMESPACE }} # Bind the role in the namespace being monitored ...
   labels:
-    app: kuantifier-runtime-exporter
+    app: {{ .Release.Name }}-runtime-exporter
 subjects:
 - kind: ServiceAccount
-  name: kuantifier-runtime-exporter
+  name: {{ .Release.Name }}-runtime-exporter
   namespace: {{ .Release.Namespace }} # ... To the service account in the helm release namespace
 roleRef:
   kind: Role
-  name: kuantifier-runtime-exporter
+  name: {{ .Release.Name }}-runtime-exporter
   apiGroup: rbac.authorization.k8s.io
 
 ---
@@ -53,25 +53,25 @@ roleRef:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kuantifier-runtime-exporter
+  name: {{ .Release.Name }}-runtime-exporter
   namespace: {{ .Release.Namespace }}
   labels:
-    app: kuantifier-runtime-exporter
+    app: {{ .Release.Name }}-runtime-exporter
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kuantifier-runtime-exporter
+      app: {{ .Release.Name }}-runtime-exporter
   template:
     metadata:
       labels:
-        app: kuantifier-runtime-exporter
+        app: {{ .Release.Name }}-runtime-exporter
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9100"
         prometheus.io/path: "/metrics"
     spec:
-      serviceAccountName: kuantifier-runtime-exporter
+      serviceAccountName: {{ .Release.Name }}-runtime-exporter
       containers:
       - name: exporter
         image: {{ .Values.exporter.image_repository }}:{{ .Values.exporter.image_tag }}
@@ -108,13 +108,35 @@ spec:
 ---
 
 ############################################
+# Service for Exporter
+############################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-runtime-exporter
+  labels:
+    app: {{ .Release.Name }}-runtime-exporter
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ .Release.Name }}-runtime-exporter
+  ports:
+  - name: metrics
+    protocol: TCP
+    port: 9100
+    targetPort: metrics
+
+---
+
+############################################
 # ServiceMonitor for Exporter
 ############################################
 
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: kuantifier-runtime-exporter-servicemonitor
+  name: {{ .Release.Name }}-runtime-exporter-servicemonitor
   namespace: {{ .Release.Namespace }}
   labels:
     release: monitoring-kube-prometheus-stack
@@ -124,7 +146,7 @@ spec:
       - {{ .Release.Namespace }}
   selector:
     matchLabels:
-      app: kuantifier-runtime-exporter
+      app: {{ .Release.Name }}-runtime-exporter
   endpoints:
     - port: metrics
       path: /metrics
