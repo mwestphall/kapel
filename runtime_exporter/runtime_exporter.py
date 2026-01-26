@@ -67,7 +67,7 @@ if __name__ == '__main__':
                 if cpu_req > 0:
                     pod_cpu_req.labels(*key).set(cpu_req)
 
-                # catches terminating pods and marks them with the kapel_pod_endtime metric
+                # catches terminating pods and marks them with the kuantifier_pod_endtime metric
                 phase = pod.status.phase or ""
                 if phase in ('Succeeded', 'Failed') or pod.metadata.deletion_timestamp:
                     pod_endtime.labels(*key).set(now)

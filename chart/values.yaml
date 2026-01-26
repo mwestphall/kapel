@@ -68,7 +68,7 @@ processor:
     # SUBMIT_HOST: "k8s.example.org:6443/namespace"
     
     # Namespace in the cluster where workload pods run
-    NAMESPACE: "example-namespace"
+    # NAMESPACE: "example-namespace"
     
     # Virtual Organization Name
     VO_NAME: "example-vo"
