@@ -93,9 +93,6 @@ exporter:
   image_pull_policy: "IfNotPresent"
 
   config:
-    # Namespace in the cluster where workload pods run
-    NAMESPACE: "example-namespace"
-
     # Prefix for identifying workload pods
     POD_NAME_PREFIX: ""
 
