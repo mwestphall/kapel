@@ -68,7 +68,7 @@ spec:
         app: {{ .Release.Name }}-runtime-exporter
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "9100"
+        prometheus.io/port: "{{ .Values.exporter.config.METRICS_PORT }}"
         prometheus.io/path: "/metrics"
     spec:
       serviceAccountName: {{ .Release.Name }}-runtime-exporter
@@ -84,7 +84,7 @@ spec:
           value: {{ $value | quote }}
         {{- end }}
         ports:
-        - containerPort: 9100
+        - containerPort: {{ .Values.exporter.config.METRICS_PORT | atoi }}
           name: metrics
           protocol: TCP
         resources:
@@ -97,13 +97,13 @@ spec:
         livenessProbe:
           httpGet:
             path: /metrics
-            port: 9100
+            port: {{ .Values.exporter.config.METRICS_PORT | atoi }}
           initialDelaySeconds: 30
           periodSeconds: 30
         readinessProbe:
           httpGet:
             path: /metrics
-            port: 9100
+            port: {{ .Values.exporter.config.METRICS_PORT | atoi }}
           initialDelaySeconds: 10
           periodSeconds: 10
 
@@ -126,7 +126,7 @@ spec:
   ports:
   - name: metrics
     protocol: TCP
-    port: 9100
+    port: {{ .Values.exporter.config.METRICS_PORT | atoi }}
     targetPort: metrics
 
 ---
@@ -135,6 +135,7 @@ spec:
 # ServiceMonitor for Exporter
 ############################################
 
+{{ if .Values.exporter.serviceMonitor.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -154,5 +155,6 @@ spec:
       path: /metrics
       interval: 30s
       honorLabels: true
+{{ end }}
 
 {{ end }}
