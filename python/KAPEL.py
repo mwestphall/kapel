@@ -208,24 +208,12 @@ def get_gap_time_periods(start, end):
     # return value is list of dicts of (int, int, datetime, int)
     return periods
 
-# Only extract the record for the top level cgroup, which should (theoretically)
-# encompass all containers
-ID_UUID_RE = re.compile(r'^/kubepods.slice/.*pod([0-9a-f_]*).slice$')
-def _extact_uid_from_cgroup(cgroup: str):
-    if match := ID_UUID_RE.match(cgroup):
-        return match[1].replace('_','-')
-    return None
 
 def filter_records_by_uid(prom_result: list[dict[str, dict[str, Any]]]):
-    # Given a list of prometheus results, attempt to determine the `uid`
-    # field for records that don't have them, then return just the records
-    # for which a UID could be determined
-    for item in prom_result:
-        metric = item['metric']
-        if 'id' in metric and not 'uid' in metric:
-            uid = _extact_uid_from_cgroup(metric['id'])
-            metric['uid'] = uid
-
+    # For a given set of prometheus metrics, gracefully filter out any metrics that do 
+    # not have a pod UID field set. We expect that all kube-state-metrics metrics, as 
+    # well as custom metrics exported by runtime_exporter.py, should always have this
+    # field set.
     return (item for item in prom_result if item['metric'].get('uid'))
 
 # Take a list of dicts from the prom query and construct a random-accessible dict (casting from string to float while we're at it) via generator.
