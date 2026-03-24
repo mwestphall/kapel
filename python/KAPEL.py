@@ -89,10 +89,6 @@ class QueryLogic:
         self.cores = f'max by (pod, uid) ({_cores_pref})'
         self.memory = f'sum by (pod, uid) (max_over_time(kube_pod_container_resource_requests{{resource="memory", node!="", namespace="{namespace}"}}[{queryRange}])) / 1000'
 
-        # This is container-level CPU usage reported by kubelets, for gratia output.
-        # Take the largest (i.e. final) value of the cumulative CPU usage of each container, and sum the results for all containers in a pod.
-        self.cpuusage = f'sum by (pod, id) (last_over_time(container_cpu_usage_seconds_total{{namespace="{namespace}"}}[{queryRange}]))'
-
 def summary_message(config, year, month, wall_time, cpu_time, n_jobs, first_end, last_end):
     output = (
         f'APEL-summary-job-message: v0.2\n'
@@ -250,7 +246,7 @@ def record_summarized_period(config, period_start, year, month, results):
 
     sum_cputime = 0
     t4 = timer()
-    for (key, uid) in valid_jobs:
+    for key in valid_jobs:
         if endtime[key] < starttime[key]:
             # could happen due to inaccurate clocks?
             print(f'WARNING: ignoring job {key} with negative duration: start={starttime[key]}, end={endtime[key]}')
